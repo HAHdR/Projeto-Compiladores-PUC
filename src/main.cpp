@@ -1,9 +1,19 @@
 #include <iostream>
 #include <cstdio>
 
-// Indica que essas funções e variáveis vêm dos arquivos do Bison/Flex
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/FileSystem.h>
+
 extern int yyparse(); 
 extern FILE* yyin; 
+
+// Alocação das instâncias globais
+llvm::LLVMContext* TheContext = nullptr;
+llvm::Module* TheModule = nullptr;
+llvm::IRBuilder<>* Builder = nullptr;
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -11,27 +21,39 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Para abrir o arquivo .pas passado por argumento no terminal
     FILE* infile = fopen(argv[1], "r");
     if (!infile) {
         std::cerr << "Erro crasso: Nao foi possivel abrir o arquivo " << argv[1] << "\n";
         return 1;
     }
 
-    // Diz para o Flex ler o arquivo em vez de ficar esperando o teclado
     yyin = infile;
 
-    std::cout << "Iniciando a compilacao do arquivo: " << argv[1] << "\n";
-    
-    // Dispara o Parser (Bison)
-    int result = yyparse();
+    // INICIALIZAÇÃO BLINDADA: Garante a criação dos objetos antes de qualquer parser rodar
+    TheContext = new llvm::LLVMContext();
+    TheModule = new llvm::Module("meu_compilador_module", *TheContext);
+    Builder = new llvm::IRBuilder<>(*TheContext);
 
+    std::cout << "Iniciando a compilacao: " << argv[1] << "\n";
+    
+    int result = yyparse();
     fclose(infile);
 
-    if (result == 0) {
-        std::cout << "Parabens! Sintaxe correta e validada!\n";
+    if (result == 0 && TheModule) {
+        std::cout << "Analise concluida! Gravando o codigo LLVM em 'saida.ll'...\n";
+        
+        std::error_code EC;
+        llvm::raw_fd_ostream dest("saida.ll", EC, llvm::sys::fs::OF_None);
+        
+        if (EC) {
+            std::cerr << "Erro ao criar o arquivo de saida: " << EC.message() << "\n";
+            return 1;
+        }
+
+        TheModule->print(dest, nullptr);
+        std::cout << "Arquivo 'saida.ll' gerado com SUCESSO!\n";
     } else {
-        std::cerr << "Falha: O codigo possui erros sintatitcos.\n";
+        std::cerr << "Falha na compilacao devido a erros.\n";
     }
 
     return result;
