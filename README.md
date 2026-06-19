@@ -1,5 +1,7 @@
 # Projeto-Compiladores-PUC
 
+**MEMBROS:** Henrique Abreu Hollanda da Rocha, Matheus Guido Noronha Moreira Passos e Thiago Salanti Mambrini.
+
 ### 1. Modelo de Sintaxe
 O compilador baseia-se na sintaxe da linguagem de programação **Mini-Pascal**, seguindo uma estrutura de programa fortemente tipada e em blocos.
 
