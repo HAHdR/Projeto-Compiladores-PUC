@@ -48,6 +48,8 @@ int line_number = 1; // ADICIONE ESTA LINHA AQUI!
 "="                     { return TOK_EQ; }
 "<"                     { return TOK_LT; }
 ">"                     { return TOK_GT; }
+"<="                    { return TOK_LE; }
+">="                    { return TOK_GE; }
 
 "+"                     { return '+'; }
 "-"                     { return '-'; }

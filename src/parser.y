@@ -36,6 +36,7 @@ std::vector<std::unique_ptr<FunctionDefAST>> FunctionDecls;
 %token TOK_IF TOK_THEN TOK_ELSE TOK_WHILE TOK_DO TOK_FOR TOK_TO
 %token TOK_PROCEDURE TOK_FUNCTION TOK_WRITE TOK_AND TOK_OR TOK_NOT
 %token TOK_EQ TOK_LT TOK_GT
+%token TOK_LE TOK_GE
 
 /* Definição de tipos para evitar erros de conversão no C++ */
 %type <block_node> statement_list
@@ -47,7 +48,7 @@ std::vector<std::unique_ptr<FunctionDefAST>> FunctionDecls;
    Resolve ambiguidade tipo "a + b * c" e "a < b and c < d". */
 %left TOK_OR
 %left TOK_AND
-%nonassoc TOK_EQ TOK_LT TOK_GT
+%nonassoc TOK_EQ TOK_LT TOK_GT TOK_LE TOK_GE
 %left '+' '-'
 %left '*' '/'
 
@@ -269,6 +270,12 @@ expression:
     }
     | expression TOK_EQ expression {
         $$ = new BinaryExprAST(BinOp::EQ, std::unique_ptr<ASTNode>($1), std::unique_ptr<ASTNode>($3));
+    }
+    | expression TOK_LE expression {
+        $$ = new BinaryExprAST(BinOp::LE, std::unique_ptr<ASTNode>($1), std::unique_ptr<ASTNode>($3));
+    }
+    | expression TOK_GE expression {
+        $$ = new BinaryExprAST(BinOp::GE, std::unique_ptr<ASTNode>($1), std::unique_ptr<ASTNode>($3));
     }
     | expression TOK_AND expression {
         $$ = new BinaryExprAST(BinOp::AND, std::unique_ptr<ASTNode>($1), std::unique_ptr<ASTNode>($3));

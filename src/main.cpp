@@ -123,15 +123,22 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        // 7. Grava o resultado no arquivo de saída saida.ll
+        // Pega o nome do arquivo passado no terminal (ex: "factor.pas")
+        std::string inputFile = argv[1];
+
+        // Pega tudo antes do ponto e adiciona .ll (vira "factor.ll")
+        std::string outputFile = inputFile.substr(0, inputFile.find_last_of('.')) + ".ll";
+
         std::error_code EC;
-        llvm::raw_fd_ostream OutFile("saida.ll", EC, llvm::sys::fs::OF_None);
+        // Usa a nossa variável dinâmica em vez da string fixa
+
+        llvm::raw_fd_ostream dest(outputFile, EC, llvm::sys::fs::OF_None);
         if (EC) {
-            std::cerr << "Erro ao abrir saida.ll: " << EC.message() << std::endl;
+            std::cerr << "Erro ao abrir " << outputFile << EC.message() << std::endl;
             return 1;
         }
-        TheModule->print(OutFile, nullptr);
-        std::cout << "LLVM IR gravado em saida.ll" << std::endl;
+        TheModule->print(dest, nullptr);
+        std::cout << "LLVM IR gravado em " << outputFile << std::endl;
     } else {
         std::cerr << "Falha na compilação." << std::endl;
         return 1;

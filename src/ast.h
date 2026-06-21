@@ -61,7 +61,7 @@ public:
 };
 
 // Operadores binários suportados: aritméticos, relacionais e lógicos
-enum class BinOp { ADD, SUB, MUL, DIV, MOD, LT, GT, EQ, AND, OR };
+enum class BinOp { ADD, SUB, MUL, DIV, MOD, LT, GT, LE, GE, EQ, AND, OR };
 
 // Classe para expressões binárias (ex: a + b, x < 3, p and q)
 class BinaryExprAST : public ASTNode {

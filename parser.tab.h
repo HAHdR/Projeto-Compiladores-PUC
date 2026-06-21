@@ -80,7 +80,9 @@ extern int yydebug;
     TOK_NOT = 281,                 /* TOK_NOT  */
     TOK_EQ = 282,                  /* TOK_EQ  */
     TOK_LT = 283,                  /* TOK_LT  */
-    TOK_GT = 284                   /* TOK_GT  */
+    TOK_GT = 284,                  /* TOK_GT  */
+    TOK_LE = 285,                  /* TOK_LE  */
+    TOK_GE = 286                   /* TOK_GE  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -98,7 +100,7 @@ union YYSTYPE
     std::vector<std::string>* param_vec;
     std::vector<ASTNode*>* arg_vec;
 
-#line 102 "parser.tab.h"
+#line 104 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
