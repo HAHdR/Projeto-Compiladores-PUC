@@ -89,14 +89,16 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 19 "src/parser.y"
+#line 22 "src/parser.y"
 
     int ival;
     char* sval;
     ASTNode* ast_node;
     BlockAST* block_node;
+    std::vector<std::string>* param_vec;
+    std::vector<ASTNode*>* arg_vec;
 
-#line 100 "parser.tab.h"
+#line 102 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

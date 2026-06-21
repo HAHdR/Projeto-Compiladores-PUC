@@ -14,6 +14,9 @@ void yyerror(const char *s);
 
 // Variável global que guardará a raiz da AST para o main.cpp acessar
 BlockAST* programRoot = nullptr;
+
+// Lista global de todas as funções/procedimentos declarados (ver ast.h)
+std::vector<std::unique_ptr<FunctionDefAST>> FunctionDecls;
 %}
 
 %union {
@@ -21,6 +24,8 @@ BlockAST* programRoot = nullptr;
     char* sval;
     ASTNode* ast_node;
     BlockAST* block_node;
+    std::vector<std::string>* param_vec;
+    std::vector<ASTNode*>* arg_vec;
 }
 
 /* Tokens gerados pelo analisador léxico */
@@ -35,6 +40,8 @@ BlockAST* programRoot = nullptr;
 /* Definição de tipos para evitar erros de conversão no C++ */
 %type <block_node> statement_list
 %type <ast_node> statement expression compound_statement
+%type <param_vec> param_list_opt param_list
+%type <arg_vec> arg_list_opt arg_list
 
 /* Precedência de operadores: da menor (topo) para a maior (base).
    Resolve ambiguidade tipo "a + b * c" e "a < b and c < d". */
@@ -53,8 +60,76 @@ BlockAST* programRoot = nullptr;
 
 /* Regra inicial do programa Mini-Pascal */
 program:
-    TOK_PROGRAM TOK_IDENTIFIER ';' declarations TOK_BEGIN statement_list TOK_END '.' {
-        programRoot = $6; // O sexto elemento ($6) é o 'statement_list'
+    TOK_PROGRAM TOK_IDENTIFIER ';' declarations subprogram_decls TOK_BEGIN statement_list TOK_END '.' {
+        programRoot = $7; // statement_list do bloco principal (begin...end.)
+    }
+    ;
+
+/* Zero ou mais funções/procedimentos declarados entre o "var" e o "begin"
+   principal do programa (não há funções aninhadas nesta versão). */
+subprogram_decls:
+    /* vazio */
+    | subprogram_decls function_decl
+    | subprogram_decls procedure_decl
+    ;
+
+/* function Nome(params) : tipo; declarations begin ... end; */
+function_decl:
+    TOK_FUNCTION TOK_IDENTIFIER '(' param_list_opt ')' ':' type ';' declarations TOK_BEGIN statement_list TOK_END ';' {
+        std::vector<std::string> params = std::move(*$4);
+        delete $4;
+        auto proto = std::make_unique<PrototypeAST>(std::string($2), params, /*IsFunction=*/true);
+        auto body  = std::unique_ptr<BlockAST>($11);
+        FunctionDecls.push_back(std::make_unique<FunctionDefAST>(std::move(proto), std::move(body)));
+        free($2);
+    }
+    ;
+
+/* procedure Nome(params); declarations begin ... end; */
+procedure_decl:
+    TOK_PROCEDURE TOK_IDENTIFIER '(' param_list_opt ')' ';' declarations TOK_BEGIN statement_list TOK_END ';' {
+        std::vector<std::string> params = std::move(*$4);
+        delete $4;
+        auto proto = std::make_unique<PrototypeAST>(std::string($2), params, /*IsFunction=*/false);
+        auto body  = std::unique_ptr<BlockAST>($9);
+        FunctionDecls.push_back(std::make_unique<FunctionDefAST>(std::move(proto), std::move(body)));
+        free($2);
+    }
+    ;
+
+/* Lista de parâmetros: "a : integer; b : integer" (vazia é permitida) */
+param_list_opt:
+    /* vazio */ { $$ = new std::vector<std::string>(); }
+    | param_list { $$ = $1; }
+    ;
+
+param_list:
+    TOK_IDENTIFIER ':' type {
+        $$ = new std::vector<std::string>();
+        $$->push_back(std::string($1));
+        free($1);
+    }
+    | param_list ';' TOK_IDENTIFIER ':' type {
+        $1->push_back(std::string($3));
+        free($3);
+        $$ = $1;
+    }
+    ;
+
+/* Lista de argumentos de uma chamada: "Fatorial(5)", "Soma(a, b)" */
+arg_list_opt:
+    /* vazio */ { $$ = new std::vector<ASTNode*>(); }
+    | arg_list { $$ = $1; }
+    ;
+
+arg_list:
+    expression {
+        $$ = new std::vector<ASTNode*>();
+        $$->push_back($1);
+    }
+    | arg_list ',' expression {
+        $1->push_back($3);
+        $$ = $1;
     }
     ;
 
@@ -112,10 +187,14 @@ statement:
         $$ = new AssignmentAST(std::string($1), std::unique_ptr<ASTNode>($3));
         free($1); // Liberta a memória do char* alocado pelo Flex
     }
-    | TOK_WRITELN '(' TOK_STRING ')' {
-        // Cria um nó de escrita contendo um nó de string interna
-        $$ = new WritelnAST(std::unique_ptr<ASTNode>(new StringAST(std::string($3))));
-        free($3);
+    | TOK_WRITELN '(' expression ')' {
+        // Aceita string, inteiro, variável, chamada de função, etc.
+        // O codegen decide %s ou %d olhando o tipo do valor gerado.
+        $$ = new WritelnAST(std::unique_ptr<ASTNode>($3), /*Newline=*/true);
+    }
+    | TOK_WRITE '(' expression ')' {
+        // Igual ao writeln, mas sem quebra de linha ao final.
+        $$ = new WritelnAST(std::unique_ptr<ASTNode>($3), /*Newline=*/false);
     }
     | TOK_IF expression TOK_THEN statement %prec TOK_THEN {
         $$ = new IfAST(std::unique_ptr<ASTNode>($2), std::unique_ptr<ASTNode>($4), nullptr);
@@ -125,6 +204,21 @@ statement:
     }
     | TOK_WHILE expression TOK_DO statement {
         $$ = new WhileAST(std::unique_ptr<ASTNode>($2), std::unique_ptr<ASTNode>($4));
+    }
+    | TOK_FOR TOK_IDENTIFIER TOK_ASSIGN expression TOK_TO expression TOK_DO statement {
+        // for $2 := $4 to $6 do $8
+        $$ = new ForAST(std::string($2), std::unique_ptr<ASTNode>($4),
+                         std::unique_ptr<ASTNode>($6), std::unique_ptr<ASTNode>($8));
+        free($2);
+    }
+    | TOK_IDENTIFIER '(' arg_list_opt ')' {
+        // Chamada de procedimento usada como statement (ex: "Imprime(x);").
+        // O valor de retorno (se algum) é descartado pelo BlockAST.
+        std::vector<std::unique_ptr<ASTNode>> args;
+        for (auto* a : *$3) args.push_back(std::unique_ptr<ASTNode>(a));
+        delete $3;
+        $$ = new CallExprAST(std::string($1), std::move(args));
+        free($1);
     }
     | compound_statement {
         $$ = $1;
@@ -136,8 +230,20 @@ expression:
     TOK_NUMBER {
         $$ = new NumberAST($1);
     }
+    | TOK_STRING {
+        $$ = new StringAST(std::string($1));
+        free($1);
+    }
     | TOK_IDENTIFIER {
         $$ = new VariableAST(std::string($1));
+        free($1);
+    }
+    | TOK_IDENTIFIER '(' arg_list_opt ')' {
+        // Chamada de função usada dentro de uma expressão (ex: "x := Fatorial(5);")
+        std::vector<std::unique_ptr<ASTNode>> args;
+        for (auto* a : *$3) args.push_back(std::unique_ptr<ASTNode>(a));
+        delete $3;
+        $$ = new CallExprAST(std::string($1), std::move(args));
         free($1);
     }
     | expression '+' expression {

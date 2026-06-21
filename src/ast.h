@@ -5,6 +5,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Function.h>
 #include <string>
 #include <vector>
 #include <memory>
@@ -47,6 +48,18 @@ public:
     llvm::Value* codegen() override;
 };
 
+// Classe para chamada de função/procedimento (ex: Fatorial(5), EhPrimo(n))
+// Serve tanto como expressão (função, usa o retorno) quanto como statement
+// (procedimento, o retorno é descartado pelo BlockAST).
+class CallExprAST : public ASTNode {
+    std::string Callee;
+    std::vector<std::unique_ptr<ASTNode>> Args;
+public:
+    CallExprAST(const std::string &Callee, std::vector<std::unique_ptr<ASTNode>> Args)
+        : Callee(Callee), Args(std::move(Args)) {}
+    llvm::Value* codegen() override;
+};
+
 // Operadores binários suportados: aritméticos, relacionais e lógicos
 enum class BinOp { ADD, SUB, MUL, DIV, LT, GT, EQ, AND, OR };
 
@@ -70,11 +83,16 @@ public:
     llvm::Value* codegen() override;
 };
 
-// Classe para o comando writeln
+// Classe para os comandos write/writeln. Aceita QUALQUER expressão (string,
+// inteiro, resultado de função, etc.) — o codegen decide em tempo de geração
+// se imprime como "%s" ou "%d" observando o tipo LLVM do valor produzido.
+// Newline=true -> writeln (quebra de linha no final); false -> write (sem quebra).
 class WritelnAST : public ASTNode {
     std::unique_ptr<ASTNode> Arg;
+    bool Newline;
 public:
-    WritelnAST(std::unique_ptr<ASTNode> Arg) : Arg(std::move(Arg)) {}
+    WritelnAST(std::unique_ptr<ASTNode> Arg, bool Newline = true)
+        : Arg(std::move(Arg)), Newline(Newline) {}
     llvm::Value* codegen() override;
 };
 
@@ -99,6 +117,20 @@ public:
     llvm::Value* codegen() override;
 };
 
+// Classe para o laço for VarName := Start to End do Body
+// (estilo Pascal: limite inclusivo, passo fixo de +1, sem "downto")
+class ForAST : public ASTNode {
+    std::string VarName;
+    std::unique_ptr<ASTNode> Start;
+    std::unique_ptr<ASTNode> End;
+    std::unique_ptr<ASTNode> Body;
+public:
+    ForAST(const std::string &VarName, std::unique_ptr<ASTNode> Start,
+           std::unique_ptr<ASTNode> End, std::unique_ptr<ASTNode> Body)
+        : VarName(VarName), Start(std::move(Start)), End(std::move(End)), Body(std::move(Body)) {}
+    llvm::Value* codegen() override;
+};
+
 // Bloco principal que contém uma lista de comandos (o begin ... end)
 class BlockAST : public ASTNode {
     std::vector<std::unique_ptr<ASTNode>> Statements;
@@ -108,5 +140,33 @@ public:
     }
     llvm::Value* codegen() override;
 };
+
+// Assinatura de uma função/procedimento: nome, nomes dos parâmetros (todos
+// tratados como integer/boolean = i32 nesta versão) e se é função (retorna
+// valor) ou procedimento (não retorna).
+class PrototypeAST {
+public:
+    std::string Name;
+    std::vector<std::string> Args;
+    bool IsFunction;
+    PrototypeAST(const std::string &Name, std::vector<std::string> Args, bool IsFunction)
+        : Name(Name), Args(std::move(Args)), IsFunction(IsFunction) {}
+    llvm::Function* codegen();
+};
+
+// Definição completa: protótipo + corpo (begin...end). Não herda de ASTNode
+// porque seu codegen() produz uma llvm::Function*, não um llvm::Value*.
+class FunctionDefAST {
+public:
+    std::unique_ptr<PrototypeAST> Proto;
+    std::unique_ptr<BlockAST> Body;
+    FunctionDefAST(std::unique_ptr<PrototypeAST> Proto, std::unique_ptr<BlockAST> Body)
+        : Proto(std::move(Proto)), Body(std::move(Body)) {}
+    llvm::Function* codegen();
+};
+
+// Lista global de todas as funções/procedimentos declarados no programa,
+// preenchida pelo parser.y e consumida pelo main.cpp antes de gerar o main().
+extern std::vector<std::unique_ptr<FunctionDefAST>> FunctionDecls;
 
 #endif

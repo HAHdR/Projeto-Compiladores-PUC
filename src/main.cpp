@@ -31,15 +31,83 @@ int main(int argc, char** argv) {
         // 1. Cria o módulo LLVM que vai conter todo o código gerado
         TheModule = std::make_unique<llvm::Module>("meu_compilador_module", TheContext);
 
-        // 2. Cria a assinatura da função main: int main()
+        // 1.5. Gera as funções/procedimentos declarados no programa, ANTES do
+        //      main (assim main pode chamá-los). Duas passadas:
+        //      - 1ª: só os protótipos, para permitir uma função chamar outra
+        //        que aparece mais abaixo no arquivo-fonte.
+        //      - 2ª: o corpo de cada função/procedimento.
+        for (auto &FnDef : FunctionDecls) {
+            FnDef->Proto->codegen();
+        }
+        for (auto &FnDef : FunctionDecls) {
+            FnDef->codegen();
+        }
+
+        // 2. Cria a assinatura da função main: int main(int argc, char** argv)
+        //    Precisamos do argc/argv DE VERDADE (passados pelo sistema
+        //    operacional) para repassar o parâmetro de linha de comando ao
+        //    programa Mini-Pascal (ex: "./fibonacci 10").
+        llvm::Type* PtrTy = llvm::PointerType::getUnqual(TheContext); // "ptr" genérico (LLVM moderno usa ponteiros opacos)
         llvm::FunctionType *MainType = llvm::FunctionType::get(
-            llvm::Type::getInt32Ty(TheContext), false);
+            llvm::Type::getInt32Ty(TheContext),
+            {llvm::Type::getInt32Ty(TheContext), PtrTy}, // (i32 argc, ptr argv)
+            false);
         llvm::Function *MainFunction = llvm::Function::Create(
             MainType, llvm::Function::ExternalLinkage, "main", TheModule.get());
+
+        auto MainArgIt = MainFunction->args().begin();
+        llvm::Argument *ArgC = &*MainArgIt++;
+        llvm::Argument *ArgV = &*MainArgIt;
+        ArgC->setName("argc");
+        ArgV->setName("argv");
 
         // 3. Cria o bloco básico de entrada e posiciona o builder nele
         llvm::BasicBlock *EntryBB = llvm::BasicBlock::Create(TheContext, "entry", MainFunction);
         Builder.SetInsertPoint(EntryBB);
+
+        // 3.5 Declara a função 'atoi' da libc (converte char* -> int), usada
+        //     para transformar o argumento de linha de comando (uma string)
+        //     no inteiro que o programa Mini-Pascal vai efetivamente usar.
+        llvm::Function *AtoiFn = TheModule->getFunction("atoi");
+        if (!AtoiFn) {
+            llvm::FunctionType *AtoiType = llvm::FunctionType::get(
+                llvm::Type::getInt32Ty(TheContext), {PtrTy}, false);
+            AtoiFn = llvm::Function::Create(AtoiType, llvm::Function::ExternalLinkage, "atoi", TheModule.get());
+        }
+
+        // 3.6 Expõe argc e argv[1] (já convertido p/ inteiro) como variáveis
+        //     pré-declaradas "argc" e "argv1", acessíveis direto no Mini-Pascal
+        //     (ex: "n := argv1;"). Se o programa for executado sem argumento
+        //     extra (argc <= 1), argv1 fica 0 em vez de invadir memória inválida.
+        llvm::AllocaInst *ArgcAlloca  = Builder.CreateAlloca(llvm::Type::getInt32Ty(TheContext), nullptr, "argc_slot");
+        llvm::AllocaInst *Argv1Alloca = Builder.CreateAlloca(llvm::Type::getInt32Ty(TheContext), nullptr, "argv1_slot");
+        Builder.CreateStore(ArgC, ArgcAlloca);
+        NamedValues["argc"] = ArgcAlloca;
+        NamedValues["argv1"] = Argv1Alloca;
+
+        llvm::BasicBlock *HasArgBB  = llvm::BasicBlock::Create(TheContext, "hasarg", MainFunction);
+        llvm::BasicBlock *NoArgBB   = llvm::BasicBlock::Create(TheContext, "noarg", MainFunction);
+        llvm::BasicBlock *ArgDoneBB = llvm::BasicBlock::Create(TheContext, "argdone", MainFunction);
+
+        llvm::Value* HasArgCond = Builder.CreateICmpSGT(
+            ArgC, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), 1), "hasargcond");
+        Builder.CreateCondBr(HasArgCond, HasArgBB, NoArgBB);
+
+        // Caso normal: leu argv[1] (uma string) e converte para inteiro com atoi
+        Builder.SetInsertPoint(HasArgBB);
+        llvm::Value* Argv1Slot = Builder.CreateGEP(
+            PtrTy, ArgV, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), 1), "argv1slot");
+        llvm::Value* Argv1Str = Builder.CreateLoad(PtrTy, Argv1Slot, "argv1str");
+        llvm::Value* Argv1Int = Builder.CreateCall(AtoiFn, {Argv1Str}, "argv1int");
+        Builder.CreateStore(Argv1Int, Argv1Alloca);
+        Builder.CreateBr(ArgDoneBB);
+
+        // Caso sem argumento extra: argv1 = 0 (evita acessar memória fora do array argv)
+        Builder.SetInsertPoint(NoArgBB);
+        Builder.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), 0), Argv1Alloca);
+        Builder.CreateBr(ArgDoneBB);
+
+        Builder.SetInsertPoint(ArgDoneBB);
 
         // 4. Dispara a geração de código recursiva a partir da raiz da árvore
         //    (cada statement do programa Mini-Pascal vira instruções LLVM aqui dentro)
