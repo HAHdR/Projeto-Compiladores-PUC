@@ -70,36 +70,22 @@
 #line 1 "src/parser.y"
 
 #include <iostream>
+#include <memory>
 #include <string>
-#include <vector>
-
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/IRBuilder.h>
+#include "src/ast.h"  // <- CORRIJA AQUI (adicione o src/)
 
 extern int yylex();
+// ...
+
+// Protótipos das funções do Flex e de erro
+extern int yylex();
+extern int yylineno;
 void yyerror(const char *s);
-extern int line_number;
 
-// Linkagem direta com os ponteiros instanciados no main.cpp
-extern llvm::LLVMContext* TheContext;
-extern llvm::Module* TheModule;
-extern llvm::IRBuilder<>* Builder;
+// Variável global que guardará a raiz da AST para o main.cpp acessar
+BlockAST* programRoot = nullptr;
 
-llvm::Function* getPrintfPrototype() {
-    llvm::Function* printfFunc = TheModule->getFunction("printf");
-    if (!printfFunc) {
-        llvm::FunctionType* printfType = llvm::FunctionType::get(
-            llvm::IntegerType::getInt32Ty(*TheContext),
-            llvm::PointerType::get(llvm::IntegerType::getInt8Ty(*TheContext), 0),
-            true
-        );
-        printfFunc = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage, "printf", TheModule);
-    }
-    return printfFunc;
-}
-
-#line 103 "parser.tab.c"
+#line 89 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -130,51 +116,52 @@ enum yysymbol_kind_t
   YYSYMBOL_YYEOF = 0,                      /* "end of file"  */
   YYSYMBOL_YYerror = 1,                    /* error  */
   YYSYMBOL_YYUNDEF = 2,                    /* "invalid token"  */
-  YYSYMBOL_TOK_PROGRAM = 3,                /* TOK_PROGRAM  */
-  YYSYMBOL_TOK_VAR = 4,                    /* TOK_VAR  */
-  YYSYMBOL_TOK_BEGIN = 5,                  /* TOK_BEGIN  */
-  YYSYMBOL_TOK_END = 6,                    /* TOK_END  */
-  YYSYMBOL_TOK_INTEGER = 7,                /* TOK_INTEGER  */
-  YYSYMBOL_TOK_BOOLEAN = 8,                /* TOK_BOOLEAN  */
-  YYSYMBOL_TOK_ASSIGN = 9,                 /* TOK_ASSIGN  */
-  YYSYMBOL_TOK_IF = 10,                    /* TOK_IF  */
-  YYSYMBOL_TOK_THEN = 11,                  /* TOK_THEN  */
-  YYSYMBOL_TOK_ELSE = 12,                  /* TOK_ELSE  */
-  YYSYMBOL_TOK_WHILE = 13,                 /* TOK_WHILE  */
-  YYSYMBOL_TOK_DO = 14,                    /* TOK_DO  */
-  YYSYMBOL_TOK_FOR = 15,                   /* TOK_FOR  */
-  YYSYMBOL_TOK_TO = 16,                    /* TOK_TO  */
-  YYSYMBOL_TOK_PROCEDURE = 17,             /* TOK_PROCEDURE  */
-  YYSYMBOL_TOK_FUNCTION = 18,              /* TOK_FUNCTION  */
-  YYSYMBOL_TOK_WRITE = 19,                 /* TOK_WRITE  */
-  YYSYMBOL_TOK_WRITELN = 20,               /* TOK_WRITELN  */
-  YYSYMBOL_TOK_AND = 21,                   /* TOK_AND  */
-  YYSYMBOL_TOK_OR = 22,                    /* TOK_OR  */
-  YYSYMBOL_TOK_NOT = 23,                   /* TOK_NOT  */
-  YYSYMBOL_TOK_EQ = 24,                    /* TOK_EQ  */
-  YYSYMBOL_TOK_LT = 25,                    /* TOK_LT  */
-  YYSYMBOL_TOK_GT = 26,                    /* TOK_GT  */
-  YYSYMBOL_TOK_IDENTIFIER = 27,            /* TOK_IDENTIFIER  */
-  YYSYMBOL_TOK_STRING = 28,                /* TOK_STRING  */
-  YYSYMBOL_TOK_NUM = 29,                   /* TOK_NUM  */
+  YYSYMBOL_TOK_IDENTIFIER = 3,             /* TOK_IDENTIFIER  */
+  YYSYMBOL_TOK_STRING = 4,                 /* TOK_STRING  */
+  YYSYMBOL_TOK_NUMBER = 5,                 /* TOK_NUMBER  */
+  YYSYMBOL_TOK_PROGRAM = 6,                /* TOK_PROGRAM  */
+  YYSYMBOL_TOK_VAR = 7,                    /* TOK_VAR  */
+  YYSYMBOL_TOK_BEGIN = 8,                  /* TOK_BEGIN  */
+  YYSYMBOL_TOK_END = 9,                    /* TOK_END  */
+  YYSYMBOL_TOK_ASSIGN = 10,                /* TOK_ASSIGN  */
+  YYSYMBOL_TOK_WRITELN = 11,               /* TOK_WRITELN  */
+  YYSYMBOL_TOK_INTEGER = 12,               /* TOK_INTEGER  */
+  YYSYMBOL_TOK_BOOLEAN = 13,               /* TOK_BOOLEAN  */
+  YYSYMBOL_TOK_IF = 14,                    /* TOK_IF  */
+  YYSYMBOL_TOK_THEN = 15,                  /* TOK_THEN  */
+  YYSYMBOL_TOK_ELSE = 16,                  /* TOK_ELSE  */
+  YYSYMBOL_TOK_WHILE = 17,                 /* TOK_WHILE  */
+  YYSYMBOL_TOK_DO = 18,                    /* TOK_DO  */
+  YYSYMBOL_TOK_FOR = 19,                   /* TOK_FOR  */
+  YYSYMBOL_TOK_TO = 20,                    /* TOK_TO  */
+  YYSYMBOL_TOK_PROCEDURE = 21,             /* TOK_PROCEDURE  */
+  YYSYMBOL_TOK_FUNCTION = 22,              /* TOK_FUNCTION  */
+  YYSYMBOL_TOK_WRITE = 23,                 /* TOK_WRITE  */
+  YYSYMBOL_TOK_AND = 24,                   /* TOK_AND  */
+  YYSYMBOL_TOK_OR = 25,                    /* TOK_OR  */
+  YYSYMBOL_TOK_NOT = 26,                   /* TOK_NOT  */
+  YYSYMBOL_TOK_EQ = 27,                    /* TOK_EQ  */
+  YYSYMBOL_TOK_LT = 28,                    /* TOK_LT  */
+  YYSYMBOL_TOK_GT = 29,                    /* TOK_GT  */
   YYSYMBOL_30_ = 30,                       /* '+'  */
   YYSYMBOL_31_ = 31,                       /* '-'  */
-  YYSYMBOL_32_ = 32,                       /* ';'  */
-  YYSYMBOL_33_ = 33,                       /* '.'  */
-  YYSYMBOL_34_ = 34,                       /* ':'  */
-  YYSYMBOL_35_ = 35,                       /* '('  */
-  YYSYMBOL_36_ = 36,                       /* ')'  */
-  YYSYMBOL_YYACCEPT = 37,                  /* $accept  */
-  YYSYMBOL_program = 38,                   /* program  */
-  YYSYMBOL_39_1 = 39,                      /* $@1  */
-  YYSYMBOL_declarations = 40,              /* declarations  */
-  YYSYMBOL_variable_list = 41,             /* variable_list  */
-  YYSYMBOL_variable_declaration = 42,      /* variable_declaration  */
-  YYSYMBOL_type = 43,                      /* type  */
-  YYSYMBOL_block = 44,                     /* block  */
-  YYSYMBOL_statements = 45,                /* statements  */
-  YYSYMBOL_statement = 46,                 /* statement  */
-  YYSYMBOL_expression = 47                 /* expression  */
+  YYSYMBOL_32_ = 32,                       /* '*'  */
+  YYSYMBOL_33_ = 33,                       /* '/'  */
+  YYSYMBOL_34_ = 34,                       /* ';'  */
+  YYSYMBOL_35_ = 35,                       /* '.'  */
+  YYSYMBOL_36_ = 36,                       /* ':'  */
+  YYSYMBOL_37_ = 37,                       /* '('  */
+  YYSYMBOL_38_ = 38,                       /* ')'  */
+  YYSYMBOL_YYACCEPT = 39,                  /* $accept  */
+  YYSYMBOL_program = 40,                   /* program  */
+  YYSYMBOL_declarations = 41,              /* declarations  */
+  YYSYMBOL_variable_decl_list = 42,        /* variable_decl_list  */
+  YYSYMBOL_variable_decl = 43,             /* variable_decl  */
+  YYSYMBOL_type = 44,                      /* type  */
+  YYSYMBOL_statement_list = 45,            /* statement_list  */
+  YYSYMBOL_compound_statement = 46,        /* compound_statement  */
+  YYSYMBOL_statement = 47,                 /* statement  */
+  YYSYMBOL_expression = 48                 /* expression  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -502,16 +489,16 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  4
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   43
+#define YYLAST   127
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  37
+#define YYNTOKENS  39
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  11
+#define YYNNTS  10
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  23
+#define YYNRULES  31
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  44
+#define YYNSTATES  68
 
 /* YYMAXUTOK -- Last valid token kind.  */
 #define YYMAXUTOK   284
@@ -532,8 +519,8 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-      35,    36,     2,    30,     2,    31,    33,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,    34,    32,
+      37,    38,    32,    30,     2,    31,    35,    33,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,    36,    34,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -561,11 +548,12 @@ static const yytype_int8 yytranslate[] =
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
-static const yytype_int8 yyrline[] =
+static const yytype_uint8 yyrline[] =
 {
-       0,    52,    52,    51,    67,    68,    72,    73,    77,    81,
-      82,    83,    87,    91,    92,    93,    97,    98,   115,   116,
-     120,   121,   122,   123
+       0,    56,    56,    61,    63,    67,    68,    72,    79,    80,
+      86,    90,    94,   102,   110,   115,   120,   123,   126,   129,
+     136,   139,   143,   146,   149,   152,   155,   158,   161,   164,
+     167,   170
 };
 #endif
 
@@ -581,15 +569,15 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
 {
-  "\"end of file\"", "error", "\"invalid token\"", "TOK_PROGRAM",
-  "TOK_VAR", "TOK_BEGIN", "TOK_END", "TOK_INTEGER", "TOK_BOOLEAN",
-  "TOK_ASSIGN", "TOK_IF", "TOK_THEN", "TOK_ELSE", "TOK_WHILE", "TOK_DO",
-  "TOK_FOR", "TOK_TO", "TOK_PROCEDURE", "TOK_FUNCTION", "TOK_WRITE",
-  "TOK_WRITELN", "TOK_AND", "TOK_OR", "TOK_NOT", "TOK_EQ", "TOK_LT",
-  "TOK_GT", "TOK_IDENTIFIER", "TOK_STRING", "TOK_NUM", "'+'", "'-'", "';'",
-  "'.'", "':'", "'('", "')'", "$accept", "program", "$@1", "declarations",
-  "variable_list", "variable_declaration", "type", "block", "statements",
-  "statement", "expression", YY_NULLPTR
+  "\"end of file\"", "error", "\"invalid token\"", "TOK_IDENTIFIER",
+  "TOK_STRING", "TOK_NUMBER", "TOK_PROGRAM", "TOK_VAR", "TOK_BEGIN",
+  "TOK_END", "TOK_ASSIGN", "TOK_WRITELN", "TOK_INTEGER", "TOK_BOOLEAN",
+  "TOK_IF", "TOK_THEN", "TOK_ELSE", "TOK_WHILE", "TOK_DO", "TOK_FOR",
+  "TOK_TO", "TOK_PROCEDURE", "TOK_FUNCTION", "TOK_WRITE", "TOK_AND",
+  "TOK_OR", "TOK_NOT", "TOK_EQ", "TOK_LT", "TOK_GT", "'+'", "'-'", "'*'",
+  "'/'", "';'", "'.'", "':'", "'('", "')'", "$accept", "program",
+  "declarations", "variable_decl_list", "variable_decl", "type",
+  "statement_list", "compound_statement", "statement", "expression", YY_NULLPTR
 };
 
 static const char *
@@ -599,7 +587,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-28)
+#define YYPACT_NINF (-34)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -607,17 +595,19 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 #define YYTABLE_NINF (-1)
 
 #define yytable_value_is_error(Yyn) \
-  0
+  ((Yyn) == YYTABLE_NINF)
 
 /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-       5,   -14,    18,   -11,   -28,   -28,    19,     0,    20,    -6,
-       0,   -28,    -3,     1,    -2,   -28,    -4,    23,   -28,    -5,
-       3,   -28,   -28,   -28,   -28,     4,   -17,   -13,   -28,     6,
-     -28,   -28,   -28,     7,   -28,   -27,    -1,   -28,   -28,   -13,
-     -13,   -28,   -28,   -28
+       0,    10,     3,   -20,   -34,     8,    13,    12,   -18,    13,
+     -34,    86,    -2,   -34,    11,    86,   -15,    -3,    -3,    -5,
+     -34,   -34,   -34,   -34,   -11,    -3,    -4,    21,   -34,   -34,
+      -3,    29,    45,    -9,    86,   -34,    77,   -34,   -10,    55,
+      86,    -3,    -3,    -3,    -3,    -3,    -3,    -3,    -3,    -3,
+      86,   -34,   -34,   -34,   -34,    15,    18,    87,    94,    94,
+      94,   -24,   -24,   -34,   -34,   -34,    86,   -34
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -625,25 +615,25 @@ static const yytype_int8 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       0,     0,     0,     0,     1,     2,     5,     0,     0,     0,
-       4,     7,    15,     0,     0,     6,     0,     0,    19,     0,
-       0,     3,     9,    10,    11,     0,     0,     0,    12,     0,
-      14,     8,    21,     0,    20,     0,    16,    13,    17,     0,
-       0,    18,    22,    23
+       0,     0,     0,     0,     1,     3,     0,     0,     0,     4,
+       5,     0,     0,     6,     0,     0,     0,     0,     0,     0,
+      19,    10,     8,     9,     0,     0,     0,     0,    21,    20,
+       0,     0,     0,     0,    12,     7,    14,    13,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     2,    11,    15,    31,    16,    29,    30,    28,    26,
+      27,    22,    23,    24,    25,    18,     0,    17
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -28,   -28,   -28,   -28,   -28,    27,   -28,    25,   -28,    21,
-     -20
+     -34,   -34,   -34,   -34,    23,   -34,    37,   -34,   -33,    -6
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     2,     6,     8,    10,    11,    25,    18,    19,    20,
-      35
+       0,     2,     7,     9,    10,    24,    19,    20,    21,    31
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -651,47 +641,67 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      12,    28,    12,    39,    40,    22,    23,    36,     1,    41,
-      32,    33,    34,     3,    32,    16,    34,    16,     4,    42,
-      43,     5,    17,     7,    17,    12,    24,     9,    14,    39,
-      40,    26,    27,    13,    21,    30,    31,    15,    37,     0,
-      29,     0,     0,    38
+      28,    52,    29,     4,    33,    37,     1,    55,    48,    49,
+      22,    23,    32,     3,     5,     6,     8,    65,    12,    36,
+      11,    25,    27,    35,    39,    38,    51,     0,    53,    34,
+      34,    66,    13,    67,    30,    56,    57,    58,    59,    60,
+      61,    62,    63,    64,    40,    43,    44,    45,    46,    47,
+      48,    49,    26,    41,    42,     0,    43,    44,    45,    46,
+      47,    48,    49,    50,     0,     0,     0,     0,     0,    41,
+      42,     0,    43,    44,    45,    46,    47,    48,    49,    41,
+      42,     0,    43,    44,    45,    46,    47,    48,    49,    14,
+       0,     0,     0,    54,    15,     0,     0,    16,     0,     0,
+      17,    41,    42,    18,    43,    44,    45,    46,    47,    48,
+      49,    41,     0,     0,    43,    44,    45,    46,    47,    48,
+      49,    -1,    -1,    -1,    46,    47,    48,    49
 };
 
 static const yytype_int8 yycheck[] =
 {
-       5,     6,     5,    30,    31,     7,     8,    27,     3,    36,
-      27,    28,    29,    27,    27,    20,    29,    20,     0,    39,
-      40,    32,    27,     4,    27,     5,    28,    27,    34,    30,
-      31,    35,     9,     8,    33,    32,    32,    10,    32,    -1,
-      19,    -1,    -1,    36
+       3,    34,     5,     0,     9,     9,     6,    40,    32,    33,
+      12,    13,    18,     3,    34,     7,     3,    50,    36,    25,
+       8,    10,    37,    34,    30,     4,    35,    -1,    38,    34,
+      34,    16,     9,    66,    37,    41,    42,    43,    44,    45,
+      46,    47,    48,    49,    15,    27,    28,    29,    30,    31,
+      32,    33,    15,    24,    25,    -1,    27,    28,    29,    30,
+      31,    32,    33,    18,    -1,    -1,    -1,    -1,    -1,    24,
+      25,    -1,    27,    28,    29,    30,    31,    32,    33,    24,
+      25,    -1,    27,    28,    29,    30,    31,    32,    33,     3,
+      -1,    -1,    -1,    38,     8,    -1,    -1,    11,    -1,    -1,
+      14,    24,    25,    17,    27,    28,    29,    30,    31,    32,
+      33,    24,    -1,    -1,    27,    28,    29,    30,    31,    32,
+      33,    27,    28,    29,    30,    31,    32,    33
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     3,    38,    27,     0,    32,    39,     4,    40,    27,
-      41,    42,     5,    44,    34,    42,    20,    27,    44,    45,
-      46,    33,     7,     8,    28,    43,    35,     9,     6,    46,
-      32,    32,    27,    28,    29,    47,    47,    32,    36,    30,
-      31,    36,    47,    47
+       0,     6,    40,     3,     0,    34,     7,    41,     3,    42,
+      43,     8,    36,    43,     3,     8,    11,    14,    17,    45,
+      46,    47,    12,    13,    44,    10,    45,    37,     3,     5,
+      37,    48,    48,     9,    34,    34,    48,     9,     4,    48,
+      15,    24,    25,    27,    28,    29,    30,    31,    32,    33,
+      18,    35,    47,    38,    38,    47,    48,    48,    48,    48,
+      48,    48,    48,    48,    48,    47,    16,    47
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    37,    39,    38,    40,    40,    41,    41,    42,    43,
-      43,    43,    44,    45,    45,    45,    46,    46,    46,    46,
-      47,    47,    47,    47
+       0,    39,    40,    41,    41,    42,    42,    43,    44,    44,
+      45,    45,    45,    46,    47,    47,    47,    47,    47,    47,
+      48,    48,    48,    48,    48,    48,    48,    48,    48,    48,
+      48,    48
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     0,     7,     2,     0,     2,     1,     4,     1,
-       1,     1,     3,     3,     2,     0,     3,     4,     4,     1,
-       1,     1,     3,     3
+       0,     2,     8,     0,     2,     1,     2,     4,     1,     1,
+       1,     3,     2,     3,     3,     4,     4,     6,     4,     1,
+       1,     1,     3,     3,     3,     3,     3,     3,     3,     3,
+       3,     3
 };
 
 
@@ -1154,50 +1164,209 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-  case 2: /* $@1: %empty  */
-#line 52 "src/parser.y"
-    {
-        // Cria o ponto de entrada seguro 'main' usando os ponteiros validados
-        llvm::FunctionType* mainType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*TheContext), false);
-        llvm::Function* mainFunc = llvm::Function::Create(mainType, llvm::Function::ExternalLinkage, "main", TheModule);
-        llvm::BasicBlock* entryBlock = llvm::BasicBlock::Create(*TheContext, "entry", mainFunc);
-        Builder->SetInsertPoint(entryBlock);
+  case 2: /* program: TOK_PROGRAM TOK_IDENTIFIER ';' declarations TOK_BEGIN statement_list TOK_END '.'  */
+#line 56 "src/parser.y"
+                                                                                     {
+        programRoot = (yyvsp[-2].block_node); // O sexto elemento ($6) é o 'statement_list'
     }
-#line 1167 "parser.tab.c"
+#line 1173 "parser.tab.c"
     break;
 
-  case 3: /* program: TOK_PROGRAM TOK_IDENTIFIER ';' $@1 declarations block '.'  */
-#line 60 "src/parser.y"
-    { 
-        Builder->CreateRet(llvm::ConstantInt::get(llvm::IntegerType::getInt32Ty(*TheContext), 0));
-        std::cout << "Analise Sintatica e geracao de AST concluidas!\n"; 
+  case 7: /* variable_decl: TOK_IDENTIFIER ':' type ';'  */
+#line 72 "src/parser.y"
+                                {
+        // Aqui pode ser inserida a lógica de inserção na tabela de símbolos de tipos
+        free((yyvsp[-3].sval));
     }
-#line 1176 "parser.tab.c"
+#line 1182 "parser.tab.c"
     break;
 
-  case 17: /* statement: TOK_WRITELN '(' TOK_STRING ')'  */
-#line 99 "src/parser.y"
-    {
-        // Se o ponteiro da string existir, faz o tratamento correto
-        std::string cleanStr = "";
-        if ((yyvsp[-1].str)) {
-            cleanStr = *(yyvsp[-1].str);
-            if(cleanStr.front() == '"' && cleanStr.back() == '"') {
-                cleanStr = cleanStr.substr(1, cleanStr.length() - 2);
-            }
-        }
-        cleanStr += "\n";
-
-        llvm::Value* strGlobal = Builder->CreateGlobalStringPtr(cleanStr);
-        std::vector<llvm::Value*> printfArgs;
-        printfArgs.push_back(strGlobal);
-        Builder->CreateCall(getPrintfPrototype(), printfArgs);
+  case 10: /* statement_list: statement  */
+#line 86 "src/parser.y"
+              {
+        (yyval.block_node) = new BlockAST();
+        (yyval.block_node)->addStatement(std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
     }
-#line 1197 "parser.tab.c"
+#line 1191 "parser.tab.c"
+    break;
+
+  case 11: /* statement_list: statement_list ';' statement  */
+#line 90 "src/parser.y"
+                                   {
+        (yyvsp[-2].block_node)->addStatement(std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+        (yyval.block_node) = (yyvsp[-2].block_node); // Passa o bloco acumulado adiante na árvore
+    }
+#line 1200 "parser.tab.c"
+    break;
+
+  case 12: /* statement_list: statement_list ';'  */
+#line 94 "src/parser.y"
+                         {
+        // Permite um ';' sobrando antes do 'end' (muito comum em Pascal)
+        (yyval.block_node) = (yyvsp[-1].block_node);
+    }
+#line 1209 "parser.tab.c"
+    break;
+
+  case 13: /* compound_statement: TOK_BEGIN statement_list TOK_END  */
+#line 102 "src/parser.y"
+                                     {
+        (yyval.ast_node) = (yyvsp[-1].block_node);
+    }
+#line 1217 "parser.tab.c"
+    break;
+
+  case 14: /* statement: TOK_IDENTIFIER TOK_ASSIGN expression  */
+#line 110 "src/parser.y"
+                                         {
+        // $1 é o nome da variável (char*), $3 é o nó da expressão (ASTNode*)
+        (yyval.ast_node) = new AssignmentAST(std::string((yyvsp[-2].sval)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+        free((yyvsp[-2].sval)); // Liberta a memória do char* alocado pelo Flex
+    }
+#line 1227 "parser.tab.c"
+    break;
+
+  case 15: /* statement: TOK_WRITELN '(' TOK_STRING ')'  */
+#line 115 "src/parser.y"
+                                     {
+        // Cria um nó de escrita contendo um nó de string interna
+        (yyval.ast_node) = new WritelnAST(std::unique_ptr<ASTNode>(new StringAST(std::string((yyvsp[-1].sval)))));
+        free((yyvsp[-1].sval));
+    }
+#line 1237 "parser.tab.c"
+    break;
+
+  case 16: /* statement: TOK_IF expression TOK_THEN statement  */
+#line 120 "src/parser.y"
+                                                          {
+        (yyval.ast_node) = new IfAST(std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)), nullptr);
+    }
+#line 1245 "parser.tab.c"
+    break;
+
+  case 17: /* statement: TOK_IF expression TOK_THEN statement TOK_ELSE statement  */
+#line 123 "src/parser.y"
+                                                              {
+        (yyval.ast_node) = new IfAST(std::unique_ptr<ASTNode>((yyvsp[-4].ast_node)), std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1253 "parser.tab.c"
+    break;
+
+  case 18: /* statement: TOK_WHILE expression TOK_DO statement  */
+#line 126 "src/parser.y"
+                                            {
+        (yyval.ast_node) = new WhileAST(std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1261 "parser.tab.c"
+    break;
+
+  case 19: /* statement: compound_statement  */
+#line 129 "src/parser.y"
+                         {
+        (yyval.ast_node) = (yyvsp[0].ast_node);
+    }
+#line 1269 "parser.tab.c"
+    break;
+
+  case 20: /* expression: TOK_NUMBER  */
+#line 136 "src/parser.y"
+               {
+        (yyval.ast_node) = new NumberAST((yyvsp[0].ival));
+    }
+#line 1277 "parser.tab.c"
+    break;
+
+  case 21: /* expression: TOK_IDENTIFIER  */
+#line 139 "src/parser.y"
+                     {
+        (yyval.ast_node) = new VariableAST(std::string((yyvsp[0].sval)));
+        free((yyvsp[0].sval));
+    }
+#line 1286 "parser.tab.c"
+    break;
+
+  case 22: /* expression: expression '+' expression  */
+#line 143 "src/parser.y"
+                                {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::ADD, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1294 "parser.tab.c"
+    break;
+
+  case 23: /* expression: expression '-' expression  */
+#line 146 "src/parser.y"
+                                {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::SUB, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1302 "parser.tab.c"
+    break;
+
+  case 24: /* expression: expression '*' expression  */
+#line 149 "src/parser.y"
+                                {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::MUL, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1310 "parser.tab.c"
+    break;
+
+  case 25: /* expression: expression '/' expression  */
+#line 152 "src/parser.y"
+                                {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::DIV, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1318 "parser.tab.c"
+    break;
+
+  case 26: /* expression: expression TOK_LT expression  */
+#line 155 "src/parser.y"
+                                   {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::LT, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1326 "parser.tab.c"
+    break;
+
+  case 27: /* expression: expression TOK_GT expression  */
+#line 158 "src/parser.y"
+                                   {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::GT, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1334 "parser.tab.c"
+    break;
+
+  case 28: /* expression: expression TOK_EQ expression  */
+#line 161 "src/parser.y"
+                                   {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::EQ, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1342 "parser.tab.c"
+    break;
+
+  case 29: /* expression: expression TOK_AND expression  */
+#line 164 "src/parser.y"
+                                    {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::AND, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1350 "parser.tab.c"
+    break;
+
+  case 30: /* expression: expression TOK_OR expression  */
+#line 167 "src/parser.y"
+                                   {
+        (yyval.ast_node) = new BinaryExprAST(BinOp::OR, std::unique_ptr<ASTNode>((yyvsp[-2].ast_node)), std::unique_ptr<ASTNode>((yyvsp[0].ast_node)));
+    }
+#line 1358 "parser.tab.c"
+    break;
+
+  case 31: /* expression: '(' expression ')'  */
+#line 170 "src/parser.y"
+                         {
+        (yyval.ast_node) = (yyvsp[-1].ast_node);
+    }
+#line 1366 "parser.tab.c"
     break;
 
 
-#line 1201 "parser.tab.c"
+#line 1370 "parser.tab.c"
 
       default: break;
     }
@@ -1390,9 +1559,9 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 126 "src/parser.y"
+#line 175 "src/parser.y"
 
 
 void yyerror(const char *s) {
-    std::cerr << "Erro Sintatico na linha " << line_number << ": " << s << "\n";
+    std::cerr << "Erro sintático na linha " << yylineno << ": " << s << std::endl;
 }

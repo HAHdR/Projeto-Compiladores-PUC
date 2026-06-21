@@ -54,33 +54,33 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    TOK_PROGRAM = 258,             /* TOK_PROGRAM  */
-    TOK_VAR = 259,                 /* TOK_VAR  */
-    TOK_BEGIN = 260,               /* TOK_BEGIN  */
-    TOK_END = 261,                 /* TOK_END  */
-    TOK_INTEGER = 262,             /* TOK_INTEGER  */
-    TOK_BOOLEAN = 263,             /* TOK_BOOLEAN  */
-    TOK_ASSIGN = 264,              /* TOK_ASSIGN  */
-    TOK_IF = 265,                  /* TOK_IF  */
-    TOK_THEN = 266,                /* TOK_THEN  */
-    TOK_ELSE = 267,                /* TOK_ELSE  */
-    TOK_WHILE = 268,               /* TOK_WHILE  */
-    TOK_DO = 269,                  /* TOK_DO  */
-    TOK_FOR = 270,                 /* TOK_FOR  */
-    TOK_TO = 271,                  /* TOK_TO  */
-    TOK_PROCEDURE = 272,           /* TOK_PROCEDURE  */
-    TOK_FUNCTION = 273,            /* TOK_FUNCTION  */
-    TOK_WRITE = 274,               /* TOK_WRITE  */
-    TOK_WRITELN = 275,             /* TOK_WRITELN  */
-    TOK_AND = 276,                 /* TOK_AND  */
-    TOK_OR = 277,                  /* TOK_OR  */
-    TOK_NOT = 278,                 /* TOK_NOT  */
-    TOK_EQ = 279,                  /* TOK_EQ  */
-    TOK_LT = 280,                  /* TOK_LT  */
-    TOK_GT = 281,                  /* TOK_GT  */
-    TOK_IDENTIFIER = 282,          /* TOK_IDENTIFIER  */
-    TOK_STRING = 283,              /* TOK_STRING  */
-    TOK_NUM = 284                  /* TOK_NUM  */
+    TOK_IDENTIFIER = 258,          /* TOK_IDENTIFIER  */
+    TOK_STRING = 259,              /* TOK_STRING  */
+    TOK_NUMBER = 260,              /* TOK_NUMBER  */
+    TOK_PROGRAM = 261,             /* TOK_PROGRAM  */
+    TOK_VAR = 262,                 /* TOK_VAR  */
+    TOK_BEGIN = 263,               /* TOK_BEGIN  */
+    TOK_END = 264,                 /* TOK_END  */
+    TOK_ASSIGN = 265,              /* TOK_ASSIGN  */
+    TOK_WRITELN = 266,             /* TOK_WRITELN  */
+    TOK_INTEGER = 267,             /* TOK_INTEGER  */
+    TOK_BOOLEAN = 268,             /* TOK_BOOLEAN  */
+    TOK_IF = 269,                  /* TOK_IF  */
+    TOK_THEN = 270,                /* TOK_THEN  */
+    TOK_ELSE = 271,                /* TOK_ELSE  */
+    TOK_WHILE = 272,               /* TOK_WHILE  */
+    TOK_DO = 273,                  /* TOK_DO  */
+    TOK_FOR = 274,                 /* TOK_FOR  */
+    TOK_TO = 275,                  /* TOK_TO  */
+    TOK_PROCEDURE = 276,           /* TOK_PROCEDURE  */
+    TOK_FUNCTION = 277,            /* TOK_FUNCTION  */
+    TOK_WRITE = 278,               /* TOK_WRITE  */
+    TOK_AND = 279,                 /* TOK_AND  */
+    TOK_OR = 280,                  /* TOK_OR  */
+    TOK_NOT = 281,                 /* TOK_NOT  */
+    TOK_EQ = 282,                  /* TOK_EQ  */
+    TOK_LT = 283,                  /* TOK_LT  */
+    TOK_GT = 284                   /* TOK_GT  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -89,12 +89,14 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 33 "src/parser.y"
+#line 19 "src/parser.y"
 
-    int num;
-    std::string* str;
+    int ival;
+    char* sval;
+    ASTNode* ast_node;
+    BlockAST* block_node;
 
-#line 98 "parser.tab.h"
+#line 100 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

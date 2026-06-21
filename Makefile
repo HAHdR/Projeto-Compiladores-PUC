@@ -8,8 +8,8 @@ LLVMLIBS = `llvm-config --libs --system-libs`
 all: meu_compilador
 
 # Geração do executável acoplando as bibliotecas do LLVM
-meu_compilador: src/main.cpp parser.tab.c lex.yy.c
-	$(CXX) $(CXXFLAGS) src/main.cpp parser.tab.c lex.yy.c $(LLVMLIBS) -o meu_compilador
+meu_compilador: src/main.cpp src/codegen.cpp parser.tab.c lex.yy.c
+	$(CXX) $(CXXFLAGS) src/main.cpp src/codegen.cpp parser.tab.c lex.yy.c $(LLVMLIBS) -o meu_compilador
 
 parser.tab.c parser.tab.h: src/parser.y
 	bison -d src/parser.y

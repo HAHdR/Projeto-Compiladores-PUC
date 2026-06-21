@@ -1,12 +1,16 @@
 %{
-#include <iostream>
 #include <string>
+#include <iostream>
+#include <cstdlib>
+#include <cstring>
+#include "src/ast.h"
 #include "parser.tab.h"
 
-int line_number = 1;
+int line_number = 1; // ADICIONE ESTA LINHA AQUI!
 %}
 
 %option noyywrap
+%option yylineno
 
 %%
 
@@ -56,9 +60,22 @@ int line_number = 1;
 "\("                    { return '('; }
 "\)"                    { return ')'; }
 
-\"[^\"]*\"              { return TOK_STRING; }
+[0-9]+                  {
+    yylval.ival = atoi(yytext);
+    return TOK_NUMBER;
+}
 
-[0-9]+                  { return TOK_NUM; }
-[a-zA-Z][a-zA-Z0-9]* { return TOK_IDENTIFIER; }
+[a-zA-Z_][a-zA-Z0-9_]* {
+    /* Copia o texto lido para a variável semântica do Bison */
+    yylval.sval = strdup(yytext);
+    return TOK_IDENTIFIER;
+}
+
+\"[^\"]*\" {
+    /* Truque para remover as aspas da string ("Ola Mundo" vira Ola Mundo) */
+    yytext[strlen(yytext)-1] = '\0';
+    yylval.sval = strdup(yytext + 1);
+    return TOK_STRING;
+}
 
 .                       { std::cerr << "Erro Lexico na linha " << line_number << ": caractere invalido '" << yytext << "'\n"; }
