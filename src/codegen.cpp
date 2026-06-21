@@ -75,6 +75,7 @@ llvm::Value* BinaryExprAST::codegen() {
         case BinOp::SUB: return Builder.CreateSub(L, R, "subtmp");
         case BinOp::MUL: return Builder.CreateMul(L, R, "multmp");
         case BinOp::DIV: return Builder.CreateSDiv(L, R, "divtmp");
+        case BinOp::MOD: return Builder.CreateSRem(L, R, "modtmp");
         case BinOp::LT:  return Builder.CreateICmpSLT(L, R, "lttmp");
         case BinOp::GT:  return Builder.CreateICmpSGT(L, R, "gttmp");
         case BinOp::EQ:  return Builder.CreateICmpEQ(L, R, "eqtmp");

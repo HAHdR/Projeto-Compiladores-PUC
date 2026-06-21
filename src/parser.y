@@ -258,6 +258,9 @@ expression:
     | expression '/' expression {
         $$ = new BinaryExprAST(BinOp::DIV, std::unique_ptr<ASTNode>($1), std::unique_ptr<ASTNode>($3));
     }
+    | expression '%' expression {
+        $$ = new BinaryExprAST(BinOp::MOD, std::unique_ptr<ASTNode>($1), std::unique_ptr<ASTNode>($3));
+    }
     | expression TOK_LT expression {
         $$ = new BinaryExprAST(BinOp::LT, std::unique_ptr<ASTNode>($1), std::unique_ptr<ASTNode>($3));
     }

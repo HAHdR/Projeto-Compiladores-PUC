@@ -59,6 +59,7 @@ int line_number = 1; // ADICIONE ESTA LINHA AQUI!
 ","                     { return ','; }
 "\("                    { return '('; }
 "\)"                    { return ')'; }
+"%"			{ return '%'; }
 
 [0-9]+                  {
     yylval.ival = atoi(yytext);
